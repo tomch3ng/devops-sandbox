@@ -27,3 +27,10 @@ Resources:
     Properties:
       InternetGatewayId: !Ref SandboxInternetGateway
       VpcId: !Ref SandboxVPC
+Outputs:
+  VpcId:
+    Description: "VPC ID"
+    Value: !Ref SandboxVPC
+  RouteTableId:
+    Description: "Route Table ID"
+    Value: !Ref SandboxPublicRouteTable

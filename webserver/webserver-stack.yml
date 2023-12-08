@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
 Resources:
-  TwoTierWebserverSG:
+  BasicWebserverSG:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      VpcId: !Ref SandboxVPC
+      VpcId: vpc-0145c2779b170307f
       GroupDescription: Allow access from HTTP and SSH traffic
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -14,33 +14,17 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref SSHLocation
-  SandboxInternetGateway:
-    Type: 'AWS::EC2::InternetGateway'
-    Properties: {}
-  SandboxVPC:
-    Type: 'AWS::EC2::VPC'
-    Properties:
-      EnableDnsSupport: 'true'
-      EnableDnsHostnames: 'true'
-      CidrBlock: 10.30.0.0/16
-  TwoTierWebserverSubnet:
+  BasicWebserverSubnet:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      VpcId: !Ref SandboxVPC
+      VpcId: vpc-0145c2779b170307f
       CidrBlock: 10.30.0.0/24
-  SandboxPublicRouteTable:
-    Type: 'AWS::EC2::RouteTable'
-    Properties: {}
-  SandboxPublicRoute:
-    Type: 'AWS::EC2::Route'
+  SubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref SandboxPublicRouteTable
-      GatewayId: !Ref SandboxInternetGateway
-    DependsOn:
-      - SandboxInternetGateway
-      - SandboxVPCGatewayAttachment
-  TwoTierWebserver:
+      SubnetId: !Ref BasicWebserverSubnet
+      RouteTableId: rtb-0b599c60049f9f68b
+  BasicWebserver:
     Type: 'AWS::EC2::Instance'
     Properties:
       InstanceType: !Ref InstanceType
@@ -54,11 +38,11 @@ Resources:
       KeyName: !Ref KeyName
       NetworkInterfaces:
         - GroupSet:
-            - !Ref TwoTierWebserverSG
+            - !Ref BasicWebserverSG
           AssociatePublicIpAddress: 'true'
           DeviceIndex: '0'
           DeleteOnTermination: 'true'
-          SubnetId: !Ref TwoTierWebserverSubnet
+          SubnetId: !Ref BasicWebserverSubnet
       UserData: !Base64 
         'Fn::Join':
           - ''
@@ -71,7 +55,7 @@ Resources:
             - '/opt/aws/bin/cfn-init -v '
             - '         --stack '
             - !Ref 'AWS::StackName'
-            - '         --resource TwoTierWebserver '
+            - '         --resource BasicWebserver '
             - '         --configsets All '
             - '         --region '
             - !Ref 'AWS::Region'
@@ -82,7 +66,7 @@ Resources:
             - '/opt/aws/bin/cfn-signal -e $? '
             - '         --stack '
             - !Ref 'AWS::StackName'
-            - '         --resource TwoTierWebserver '
+            - '         --resource BasicWebserver '
             - '         --region '
             - !Ref 'AWS::Region'
             - ''
@@ -111,13 +95,6 @@ Resources:
               httpd:
                 enabled: 'true'
                 ensureRunning: 'true'
-    DependsOn:
-      - SandboxPublicRoute
-  SandboxVPCGatewayAttachment:
-    Type: 'AWS::EC2::VPCGatewayAttachment'
-    Properties:
-      InternetGatewayId: !Ref SandboxInternetGateway
-      VpcId: !Ref SandboxVPC
 Parameters:
   InstanceType:
     Description: WebServer EC2 instance type
@@ -360,6 +337,6 @@ Outputs:
       - ''
       - - 'http://'
         - !GetAtt 
-          - TwoTierWebserver
+          - BasicWebserver
           - PublicIp
     Description: Newly created application URL

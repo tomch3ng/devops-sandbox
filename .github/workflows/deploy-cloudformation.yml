@@ -29,9 +29,17 @@ jobs:
           aws-region: us-east-1
 
       # Deploy to AWS CloudFormation
-      - name: Deploy to AWS CloudFormation
+      - name: Deploy baseline VPC
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: sandbox-stack
           template: sandbox-stack.yml
           no-fail-on-empty-changeset: "1"
+
+      - name: Deploy basic webserver stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: webserver-stack
+          template: webserver/webserver-stack.yml
+          no-fail-on-empty-changeset: "1"
+          parameter-overrides: "InstanceType=t2.micro,KeyName=aws-sandbox"
