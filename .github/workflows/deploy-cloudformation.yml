@@ -24,7 +24,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
           aws-region: us-east-1
 
@@ -35,4 +35,3 @@ jobs:
           name: sandbox-stack
           template: sandbox-stack.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: "EC2InstanceType=t2.micro"
