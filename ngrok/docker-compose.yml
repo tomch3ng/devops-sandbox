@@ -1,0 +1,15 @@
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command:
+    - "http"
+    - "${JENKINS_URL}"
+    - "--verify-webhook" 
+    - "github" 
+    - "--verify-webhook-secret"
+    - "${GITHUB_WEBHOOK_SECRET}"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - 4040:4040
