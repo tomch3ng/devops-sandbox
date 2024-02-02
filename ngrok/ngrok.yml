@@ -1,5 +1,0 @@
-version: 2
-tunnels:
-    jenkins:
-        proto: http
-        addr: https://jenkins.kaptest.com
