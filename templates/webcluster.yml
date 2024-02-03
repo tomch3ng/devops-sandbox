@@ -17,7 +17,7 @@ Parameters:
     MaxLength: 18
     Default: 0.0.0.0/0
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-  Subnets:
+  PublicSubnets:
     Type: 'List<AWS::EC2::Subnet::Id>'
     Description: At least two public subnets in different Availability Zones in the selected VPC
   VPC:
@@ -118,7 +118,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties: 
       Scheme: internet-facing
-      Subnets: !Ref Subnets 
+      Subnets: !Ref PublicSubnets 
       SecurityGroups:
         - !GetAtt ELBSecurityGroup.GroupId
   LaunchTemplate:
@@ -162,7 +162,7 @@ Resources:
       MinSize: '2'
       TargetGroupARNs: 
         - !Ref EC2TargetGroup
-      VPCZoneIdentifier: !Ref Subnets
+      VPCZoneIdentifier: !Ref PublicSubnets
       Tags:
         - Key: APPLICATION
           Value: !Ref Application
@@ -170,8 +170,12 @@ Resources:
         - Key: ENVIRONMENT
           Value: !Ref Environment
           PropagateAtLaunch: true
+  ### To Do: Add Cloudwatch alarms for high ELB error rate, response times
 
 Outputs: 
   WebsiteURL:
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/'
     Description: Webserver URL
+  EC2SecurityGroup:
+    Value: !Ref EC2SecurityGroup
+    Description: EC2 Security Group ID
