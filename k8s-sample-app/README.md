@@ -1,4 +1,4 @@
-https://kubernetes.io/docs/tutorials/stateless-application/guestbook/
+Simple guestbook app for testing kubernetes cluster. Based on https://kubernetes.io/docs/tutorials/stateless-application/guestbook/.
 ```
 kubectl apply -f redis-leader-deployment.yml 
 
