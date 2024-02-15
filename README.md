@@ -25,3 +25,9 @@ Update `stackparams/phoneapp.json`, setting `IngressGroupID` to the EC2 security
 ```
 aws cloudformation deploy --template-file templates/mysqlrds.yml --parameter-overrides file://stackparams/phoneapp.json --stack-name phoneapp-db
 ```
+
+### Set up EKS cluster
+Specify valid VPC and subnets in `stackparams/ekscluster.json`. Then run:
+```
+aws cloudformation deploy --template-file templates/ekscluster.yml --parameter-overrides file://stackparams/ekscluster.json --capabilities CAPABILITY_NAMED_IAM --stack-name sandbox-eks
+```
