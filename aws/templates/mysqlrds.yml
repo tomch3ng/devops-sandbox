@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: MySQL DB instance with multi-AZ option
+
+Parameters:
+  DatabaseName:
+    Default: mydb
+    Description: Database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+  MasterUsername:
+    NoEcho: 'true'
+    Description: Username for MySQL database access
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+  MasterPassword:
+    NoEcho: 'true'
+    Description: Password for MySQL database access
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Must contain only alphanumeric characters and be at least 8 characters long.
+  MultiAZ:
+    Description: Enable multi-AZ (true/false)
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    ConstraintDescription: Must be "true" or "false"
+  VPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
+  PrivateSubnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: At least two private subnets in different Availability Zones in the selected VPC
+  IngressGroupID:
+    Type: String
+    Description: Name of security group whose members can have access to the RDS instance.
+  Application:
+    Description: Name of application
+    Type: String
+    MinLength: '1'
+    MaxLength: '20'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters (no spaces).  
+  Environment:
+    Description: Application Environment
+    Type: String
+    AllowedValues: ["prd", "stg", "tst", "dev"]
+    ConstraintDescription: 'Must be one of: "prd", "stg", "tst", "dev"'
+
+Resources:
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow connections only from Webservers
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "rdssg-${Application}-${Environment}"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306 
+        SourceSecurityGroupId: !Ref IngressGroupID
+  RDSCluster:
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      DBInstanceIdentifier: !Sub ${Application}-${Environment}
+      DBName: !Ref DatabaseName
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 10
+      Engine: MySQL
+      EngineVersion: 8.0.35
+      MultiAZ: !Ref MultiAZ 
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterPassword
+      DBParameterGroupName: !Ref RDSParameterGroup
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      VPCSecurityGroups:
+        - Fn::GetAtt: [ RDSSecurityGroup, GroupId ]
+      Tags:
+        - Key: APPLICATION
+          Value: !Ref Application
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+  RDSParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: "Custom Parameter Group"
+      Family: mysql8.0
+      Parameters:
+        character_set_client: utf8
+        character_set_connection: utf8
+        character_set_database: utf8
+        character_set_server: utf8
+      Tags:
+        - Key: Name
+          Value: !Sub 'rdspg-${Application}-${Environment}'
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for MySQL RDS Instance
+      DBSubnetGroupName: !Sub rdssng-${Application}
+      SubnetIds: !Ref PrivateSubnets 
+Outputs: 
+  RDSEndpoint:
+    Value: !GetAtt RDSCluster.Endpoint.Address
+    Description: RDS DB instance endpoint

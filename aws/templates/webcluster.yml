@@ -1,0 +1,181 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Simple DB-driven app on EC2 cluster
+
+Parameters:
+  InstanceType:
+    Description: The EC2 instance type
+    Type: String
+    Default: t2.micro
+  LatestAmiId:
+    Description: The latest Amazon Linux 2 AMI from the Parameter Store
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-ebs
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    Default: 0.0.0.0/0
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  PublicSubnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: At least two public subnets in different Availability Zones in the selected VPC
+  VPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
+  Application:
+    Description: Name of application
+    Type: String
+    MinLength: '1'
+    MaxLength: '20'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters (no spaces).  
+  Environment:
+    Description: Application Environment
+    Type: String
+    AllowedValues: ["prd", "stg", "tst", "dev"]
+    ConstraintDescription: 'Must be one of: "prd", "stg", "tst", "dev"'
+  DatabaseURL:
+    Default: ""
+    Description: Database endpoint URL
+    Type: String
+  DatabaseName:
+    Default: ""
+    Description: Database name
+    Type: String
+  MasterUsername:
+    NoEcho: 'true'
+    Description: Username for MySQL database access
+    Type: String
+    Default: ""
+  MasterPassword:
+    NoEcho: 'true'
+    Description: Password for MySQL database access
+    Type: String
+    Default: ""
+
+Resources:
+  ELBSecurityGroup: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ELB SecurityGroup
+      Tags:
+        - Key: Name 
+          Value: !Sub sg-${Application}-${Environment}-AppELB
+      VpcId: !Ref VPC 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 Security Group
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name 
+          Value: !Sub sg-${Application}-${Environment}-EC2
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - ELBSecurityGroup
+          - GroupId 
+      - IpProtocol: tcp 
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref SSHLocation 
+  EC2TargetGroup: 
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP 
+      HealthCheckTimeoutSeconds: 15
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: '200'
+      Name: !Sub tg-${Application}-${Environment}
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: '20' 
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VPC 
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref EC2TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP 
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      Scheme: internet-facing
+      Subnets: !Ref PublicSubnets 
+      SecurityGroups:
+        - !GetAtt ELBSecurityGroup.GroupId
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub lt-${Application}-${Environment}
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType 
+        KeyName: aws-sandbox
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup 
+        UserData: 
+          Fn::Base64: !Sub
+            - |
+              #!/bin/bash
+              yum -y install httpd php mysql php-mysql
+
+              case $(ps -p 1 -o comm | tail -1) in
+              systemd) systemctl enable --now httpd ;;
+              init) chkconfig httpd on; service httpd start ;;
+              *) echo "Error starting httpd (OS not using init or systemd)." 2>&1
+              esac
+
+              if [ ! -f /var/www/html/bootcamp-app.tar.gz ]; then
+              cd /var/www/html
+              wget https://s3.amazonaws.com/immersionday-labs/bootcamp-app.tar
+              tar xvf bootcamp-app.tar
+              chown apache:root /var/www/html/rds.conf.php
+              curl 'http://localhost/rds-write-config.php' --data-raw ${rds_conf}
+              fi
+              yum -y update
+            - rds_conf: !Sub "'endpoint=${DatabaseURL}&database=${DatabaseName}&username=${MasterUsername}&password=${MasterPassword}'"
+  WebServerGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber 
+      MaxSize: '6'
+      MinSize: '2'
+      TargetGroupARNs: 
+        - !Ref EC2TargetGroup
+      VPCZoneIdentifier: !Ref PublicSubnets
+      Tags:
+        - Key: APPLICATION
+          Value: !Ref Application
+          PropagateAtLaunch: true
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+  ### To Do: Add Cloudwatch alarms for high ELB error rate, response times
+
+Outputs: 
+  WebsiteURL:
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/'
+    Description: Webserver URL
+  EC2SecurityGroup:
+    Value: !Ref EC2SecurityGroup
+    Description: EC2 Security Group ID
