@@ -15,6 +15,7 @@ JENKINS_URL=https://jenkins.mycompany.com
 
 ### Kubernetes
 ```
-kubectl create secret generic ngrok --from-env-file=.env
-kubectl apply -f ngrok-k8s.yml
+kubectl create configmap ngrok --from-env-file=.env
+kubectl create secret generic ngrok --from-env-file=.secrets
+kubectl apply -f manifest.yml
 ```
