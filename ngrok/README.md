@@ -4,9 +4,14 @@ ngrok agent for proxying Jenkins webhook calls from Github
 ## Usage
 * Create `.env` file to pass ngrok tunnel details to container. For example:
 ```
+JENKINS_URL=https://jenkins.mycompany.com
+NGROK_DOMAIN=prime-walleye-harmless.ngrok-free.app
+```
+* Create `.secrets` file to pass secrets/tokens to container. For example:
+```
 NGROK_AUTHTOKEN=0HzRyKRmsr720MoafwpuHkJftxc5NOovvz4ANUsj
 GITHUB_WEBHOOK_SECRET=M@uNS0F@wqL2
-JENKINS_URL=https://jenkins.mycompany.com
+NGROK_API_KEY=DvKwKD1ivnB4BoKK3nVLPAGRYDquKez0sCqU5FNv
 ```
 
 ### docker-compose
@@ -15,6 +20,7 @@ JENKINS_URL=https://jenkins.mycompany.com
 
 ### Kubernetes
 ```
-kubectl create secret generic ngrok --from-env-file=.env
-kubectl apply -f ngrok-k8s.yml
+kubectl create configmap ngrok --from-env-file=.env
+kubectl create secret generic ngrok --from-env-file=.secrets
+kubectl apply -f manifest.yml
 ```
