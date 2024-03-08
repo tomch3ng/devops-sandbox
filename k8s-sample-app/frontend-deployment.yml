@@ -11,6 +11,8 @@ spec:
         tier: frontend
   template:
     metadata:
+      annotations:
+        linkerd.io/inject: enabled
       labels:
         app: guestbook
         tier: frontend
