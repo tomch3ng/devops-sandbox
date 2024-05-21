@@ -3,6 +3,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-leader
+  annotations:
+    linkerd.io/inject: enabled
   labels:
     app: redis
     role: leader
