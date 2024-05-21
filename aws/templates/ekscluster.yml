@@ -24,7 +24,7 @@ Parameters:
     Description: At least two public and two private subnets in different Availability Zones in the selected VPC
   NodeInstanceType:
     Type: String
-    Default: t2.micro
+    Default: t2.small
     AllowedValues:
       - m1.small
       - m3.medium
@@ -98,7 +98,7 @@ Resources:
       InstanceTypes: [ !Ref NodeInstanceType ]
       ScalingConfig:
         MinSize: 1
-        DesiredSize: 2
+        DesiredSize: 4
         MaxSize: 4
       Subnets: !Ref Subnets
       Tags:
